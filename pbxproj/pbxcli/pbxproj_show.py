@@ -1,7 +1,7 @@
 """
 usage:
     pbxproj show [options] <project>
-    pbxproj show [options] (--target <target>...) <project> [(-s | --source-files) | (-H | --header-files) | (-r | --resource-files) | (-f | --framework-files)]
+    pbxproj show [options] (--target <target>...) <project> [(-s | --source-files) | (-H | --header-files) | (-r | --resource-files) | (-f | --framework-files) | (-D | --source-difference)]
 
 positional arguments:
     <project>                      Project path to the .xcodeproj folder.
@@ -17,6 +17,7 @@ target options:
     -f, --framework-files           Show the library files attached to the target
     -H, --header-files              Show the header files attached to the target
     -c, --configurations            Show the configurations attached to the target
+    -D, --source-difference       Show the difference source files between two target
 """
 
 from pbxproj.pbxcli import *
@@ -59,6 +60,29 @@ def _target_info(project, target_name, args):
         build_phases += [u'PBXResourcesBuildPhase']
     elif args[u'--framework-files']:
         build_phases += [u'PBXFrameworksBuildPhase']
+    elif args[u'--source-difference']:
+        info = ''
+        build_phases += [u'PBXSourcesBuildPhase']
+        if len(target_name) == 2:
+            different_source_files = []
+            for target in project.objects.get_targets(target_name):
+                for build_phase_id in target.buildPhases:
+                    build_phase = project.objects[build_phase_id]
+                    if build_phase.isa in build_phases:
+                        files = []
+                        for build_file_id in build_phase.files:
+                            build_file = project.objects[build_file_id]
+                            files.append(project.objects[build_file.fileRef]._get_comment())
+                        if len(different_source_files) == 0:
+                            for file in files:
+                                different_source_files.append(file)
+                        else:
+                            different_source_files = set(different_source_files).difference(set(files))
+                            info += '{different_source_files}\n'.format(different_source_files="\n".join(sorted(different_source_files)))
+                info += '\n'
+            return info
+        else:
+            return info
 
     info = ''
     for target in project.objects.get_targets(target_name):
